@@ -1,0 +1,841 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Permainan Menemukan Kata</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Playfair+Display:wght@700;900&family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+    <!-- Firebase SDKs -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, onSnapshot, collection, query, where, getDoc, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Global variables for Firebase (MUST BE USED)
+        window.initializeApp = initializeApp;
+        window.getAuth = getAuth;
+        window.signInAnonymously = signInAnonymously;
+        window.signInWithCustomToken = signInWithCustomToken;
+        window.onAuthStateChanged = onAuthStateChanged;
+        window.getFirestore = getFirestore;
+        window.doc = doc;
+        window.setDoc = setDoc;
+        window.onSnapshot = onSnapshot;
+        window.collection = collection;
+        window.query = query;
+        window.where = where;
+        window.getDoc = getDoc; 
+        window.getDocs = getDocs;
+
+        // Firebase config and app ID provided by the Canvas environment
+        window.firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+        window.appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        window.initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+    </script>
+    <style>
+        /* Custom CSS for Nusantara Theme - More Elegant Version */
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: linear-gradient(to bottom right, #f8f9fa, #e9ecef); /* Lighter, more neutral gradient */
+            color: #343a40; /* Darker text for better contrast */
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+            padding: 25px; /* Increased padding */
+            box-sizing: border-box;
+            /* Subtle background pattern inspired by batik or traditional motifs */
+            background-image: url('data:image/svg+xml,%3Csvg width="60" height="60" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg"%3E%3Cg fill="%23ced4da" fill-opacity="0.1"%3E%3Cpath d="M12 0h12v60H12zM0 12h60v12H0zM0 36h60v12H0zM12 0v12h36V0h12v60H48V48H12v12H0V0h12z"/%3E%3C/g%3E%3C/svg%3E');
+        }
+        .container {
+            background-color: #ffffff;
+            border-radius: 20px; /* Consistent rounded corners */
+            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.1); /* Slightly stronger, but diffused shadow */
+            padding: 45px; /* More padding for spacious feel */
+            max-width: 1000px; /* Wider container */
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 30px; /* Increased gap */
+            border: 1px solid rgba(0, 0, 0, 0.05); /* Very subtle border */
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 25px;
+        }
+        .header h1 {
+            font-family: 'Playfair Display', serif; /* Elegant serif font for title */
+            font-size: 3.5rem; /* Even larger title */
+            font-weight: 900; /* Extra bold */
+            color: #212529; /* Very dark gray/black */
+            margin-bottom: 12px;
+            letter-spacing: 1px; /* Subtle letter spacing */
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.05); /* Minimal text shadow */
+        }
+        .instructions {
+            font-size: 1.25rem; /* Larger instructions */
+            line-height: 1.8;
+            color: #495057; /* Slightly lighter gray */
+            text-align: center;
+            margin-bottom: 25px;
+        }
+        .mode-selection {
+            display: flex;
+            justify-content: center;
+            gap: 25px; /* Increased gap */
+            margin-bottom: 25px;
+        }
+        .mode-button {
+            background: linear-gradient(to right, #6c757d, #adb5bd); /* Muted, sophisticated gray gradient */
+            color: white;
+            padding: 18px 35px; /* Larger buttons */
+            border-radius: 15px; /* More rounded */
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: none;
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
+            text-transform: uppercase;
+            letter-spacing: 0.8px; /* More letter spacing */
+        }
+        .mode-button:hover {
+            background: linear-gradient(to right, #495057, #6c757d);
+            transform: translateY(-3px) scale(1.02);
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
+        }
+        .mode-button.active {
+            background: linear-gradient(to right, #20c997, #28a745); /* Elegant green for active state */
+            box-shadow: 0 6px 12px rgba(32, 201, 151, 0.3);
+            transform: translateY(-1px);
+        }
+        .teacher-section, .student-section {
+            background-color: #fefefe; /* Near white */
+            border: 1px solid #e9ecef; /* Very subtle border */
+            border-radius: 18px;
+            padding: 30px;
+            margin-top: 30px;
+            display: none;
+            flex-direction: column;
+            gap: 20px;
+            box-shadow: 0 5px 10px rgba(0, 0, 0, 0.04); /* Very light shadow */
+        }
+        .teacher-section.active, .student-section.active {
+            display: flex;
+        }
+        textarea, input[type="text"] {
+            width: 100%;
+            padding: 14px; /* More padding */
+            border-radius: 12px; /* More rounded */
+            border: 1px solid #ced4da; /* Subtle gray border */
+            font-size: 1.1rem; /* Slightly larger text */
+            min-height: 160px; /* Taller textarea */
+            resize: vertical;
+            background-color: #ffffff;
+            color: #343a40;
+            box-shadow: inset 0 1px 3px rgba(0,0,0,0.05); /* Inner shadow for depth */
+        }
+        .action-button {
+            background: linear-gradient(to right, #007bff, #00bfff); /* Classic blue gradient */
+            color: white;
+            padding: 14px 28px; /* Larger */
+            border-radius: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: none;
+            box-shadow: 0 4px 8px rgba(0, 123, 255, 0.2);
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+        }
+        .action-button:hover {
+            background: linear-gradient(to right, #0056b3, #007bff);
+            transform: translateY(-2px) scale(1.01);
+            box-shadow: 0 6px 12px rgba(0, 123, 255, 0.3);
+        }
+        .room-info {
+            background-color: #e6f7ff; /* Very light blue */
+            padding: 18px; /* More padding */
+            border-radius: 12px;
+            font-weight: 600;
+            color: #0056b3; /* Darker blue text */
+            text-align: center;
+            border: 1px solid #99d6ff; /* Matching border */
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+        .category-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px; /* Increased gap */
+            justify-content: center;
+            margin-bottom: 30px;
+        }
+        .category-button {
+            background: linear-gradient(to right, #6c757d, #adb5bd); /* Muted gray gradient */
+            color: white;
+            padding: 14px 25px; /* Larger */
+            border-radius: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: none;
+            box-shadow: 0 3px 6px rgba(0, 0, 0, 0.1);
+        }
+        .category-button:hover {
+            background: linear-gradient(to right, #495057, #6c757d);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+        }
+        .category-button.active {
+            background: linear-gradient(to right, #20c997, #28a745); /* Elegant green for active */
+            box-shadow: 0 3px 6px rgba(32, 201, 151, 0.2);
+            transform: translateY(-1px);
+        }
+        .score-feedback {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px; /* More padding */
+            background-color: #f8f9fa; /* Lighter background */
+            border-radius: 15px;
+            margin-bottom: 30px;
+            border: 1px solid #e9ecef;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.03);
+        }
+        .score {
+            font-size: 1.5rem; /* Larger score */
+            font-weight: 700;
+            color: #007bff; /* Matching blue */
+        }
+        .feedback {
+            font-size: 1.2rem; /* Larger feedback */
+            color: #495057;
+            font-weight: 500;
+        }
+        .text-area {
+            background-color: #ffffff;
+            border: 1px solid #e9ecef; /* Lighter, more subtle border */
+            border-radius: 15px;
+            padding: 35px; /* More padding */
+            line-height: 2; /* Increased line height for readability */
+            font-size: 1.15rem; /* Slightly larger text */
+            text-align: justify;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.02); /* Very subtle shadow */
+        }
+        .text-area .word {
+            cursor: pointer;
+            padding: 2px 0;
+            border-radius: 5px;
+            transition: background-color 0.1s ease;
+            display: inline-block;
+        }
+        .text-area .word:hover {
+            background-color: #e0f7fa; /* Light blue hover */
+        }
+        .text-area .word.correct {
+            background-color: #d4edda; /* Softer green */
+            color: #155724;
+            font-weight: 600;
+        }
+        .text-area .word.incorrect {
+            background-color: #f8d7da; /* Softer red */
+            color: #721c24;
+        }
+        .text-area .sentence {
+            padding: 2px 0;
+            border-radius: 5px;
+            transition: background-color 0.1s ease;
+        }
+        .text-area .sentence.correct {
+            background-color: #d4edda;
+            color: #155724;
+            font-weight: 600;
+            padding: 5px;
+            margin: 5px 0;
+            border-radius: 8px;
+        }
+        .text-area .sentence.incorrect {
+            background-color: #f8d7da;
+            color: #721c24;
+            padding: 5px;
+            margin: 5px 0;
+            border-radius: 8px;
+        }
+        .reset-button {
+            background: linear-gradient(to right, #dc3545, #e65c6a); /* Muted red gradient */
+            color: white;
+            padding: 14px 28px;
+            border-radius: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: none;
+            box-shadow: 0 4px 8px rgba(220, 53, 69, 0.2);
+            align-self: center;
+        }
+        .reset-button:hover {
+            background: linear-gradient(to right, #c82333, #dc3545);
+            transform: translateY(-1px);
+            box-shadow: 0 6px 12px rgba(220, 53, 69, 0.3);
+        }
+        .loading-indicator {
+            display: none;
+            text-align: center;
+            font-size: 1.2rem;
+            color: #007bff; /* Matching blue loading text */
+            margin-top: 15px;
+            font-weight: 600;
+        }
+        .loading-indicator.active {
+            display: block;
+        }
+        .user-id-display {
+            text-align: center;
+            font-size: 0.95rem;
+            color: #6c757d; /* Elegant gray */
+            margin-top: 10px;
+            font-family: 'Inter', sans-serif;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Jelajah Kata Nusantara</h1>
+            <p class="instructions" id="instructions">Selamat datang di petualangan kata! Pilih mode di bawah untuk memulai.</p>
+            <div class="user-id-display">ID Pengguna Anda: <span id="userIdDisplay">Memuat...</span></div>
+        </div>
+
+        <div class="mode-selection">
+            <button class="mode-button" id="teacherModeBtn">Mode Guru</button>
+            <button class="mode-button" id="studentModeBtn">Mode Siswa</button>
+        </div>
+
+        <div class="teacher-section" id="teacherSection">
+            <h2 class="text-xl font-semibold text-center text-gray-800">Mode Guru: Buat Ruangan Baru</h2>
+            <textarea id="teacherTextInput" placeholder="Masukkan teks untuk permainan di sini..."></textarea>
+            <button class="action-button" id="createRoomBtn">Buat / Perbarui Ruangan</button>
+            <div class="room-info" id="teacherRoomInfo" style="display: none;">
+                ID Ruangan Anda: <span id="teacherRoomId"></span>
+                <button class="action-button ml-4" id="copyRoomIdBtn">Salin ID</button>
+            </div>
+            <div class="loading-indicator" id="teacherLoading">Memproses teks dan membuat ruangan...</div>
+        </div>
+
+        <div class="student-section" id="studentSection">
+            <h2 class="text-xl font-semibold text-center text-gray-800">Mode Siswa: Gabung Ruangan</h2>
+            <input type="text" id="studentRoomInput" placeholder="Masukkan ID Ruangan di sini...">
+            <button class="action-button" id="joinRoomBtn">Gabung Ruangan</button>
+            <div class="loading-indicator" id="studentLoading">Memuat ruangan...</div>
+        </div>
+
+        <div id="gameArea" style="display: none;">
+            <div class="category-buttons" id="category-buttons">
+                <button class="category-button" data-category="adjektiva">Kata Sifat (Adjektiva)</button>
+                <button class="category-button" data-category="verba">Kata Kerja (Verba)</button>
+                <button class="category-button" data-category="nomina">Kata Benda (Nomina)</button>
+                <button class="category-button" data-category="penglihatan">Kata Perincian (Indra Penglihatan)</button>
+                <button class="category-button" data-category="pendengaran">Kata Perincian (Indra Pendengaran)</button>
+                <button class="category-button" data-category="peraba_penciuman">Kata Perincian (Indra Peraba/Penciuman)</button>
+                <button class="category-button" data-category="konjungsi">Konjungsi (Kata Hubung)</button>
+            </div>
+
+            <div class="score-feedback">
+                <div class="score">Skor: <span id="score">0</span></div>
+                <div class="feedback" id="feedback"></div>
+            </div>
+
+            <div class="text-area" id="text-area">
+                <!-- Text will be loaded here by JavaScript -->
+            </div>
+
+            <button class="reset-button" id="reset-button">Mulai Ulang Permainan</button>
+        </div>
+    </div>
+
+    <script type="module">
+        // Firebase variables
+        let app;
+        let db;
+        let auth;
+        let userId = 'anon'; // Default anonymous ID
+        let currentRoomId = null;
+        let unsubscribeFromRoom = null; // To manage Firestore listener
+
+        // DOM Elements
+        const teacherModeBtn = document.getElementById('teacherModeBtn');
+        const studentModeBtn = document.getElementById('studentModeBtn');
+        const teacherSection = document.getElementById('teacherSection');
+        const studentSection = document.getElementById('studentSection');
+        const teacherTextInput = document.getElementById('teacherTextInput');
+        const createRoomBtn = document.getElementById('createRoomBtn');
+        const teacherRoomInfo = document.getElementById('teacherRoomInfo'); 
+        const teacherRoomIdDisplay = document.getElementById('teacherRoomId');
+        const copyRoomIdBtn = document.getElementById('copyRoomIdBtn');
+        const teacherLoading = document.getElementById('teacherLoading');
+        const studentRoomInput = document.getElementById('studentRoomInput');
+        const joinRoomBtn = document.getElementById('joinRoomBtn');
+        const studentLoading = document.getElementById('studentLoading');
+        const gameArea = document.getElementById('gameArea');
+        const textArea = document.getElementById('text-area');
+        const scoreDisplay = document.getElementById('score');
+        const feedbackDisplay = document.getElementById('feedback');
+        const categoryButtons = document.getElementById('category-buttons');
+        const resetButton = document.getElementById('reset-button');
+        const instructionsDisplay = document.getElementById('instructions');
+        const userIdDisplay = document.getElementById('userIdDisplay');
+
+        // Game state variables
+        let currentCategory = null;
+        let score = 0;
+        let foundElements = new Set();
+        let currentCorrectAnswers = {}; // This will hold answers fetched from Firestore/API
+
+        const categoryInstructions = {
+            adjektiva: "Klik pada kata-kata yang merupakan Kata Sifat (Adjektiva).",
+            verba: "Klik pada kata-kata yang merupakan Kata Kerja (Verba).",
+            nomina: "Klik pada kata-kata yang merupakan Kata Benda (Nomina).",
+            // Updated labels here
+            penglihatan: "Klik pada kata perincian indra Penglihatan.",
+            pendengaran: "Tidak ada kata perincian indra pendengaran yang eksplisit dalam teks ini. Silakan pilih kategori lain.",
+            peraba_penciuman: "Klik pada kata perincian indra Peraba atau Penciuman.",
+            konjungsi: "Klik pada kata-kata yang merupakan Konjungsi (Kata Hubung)."
+        };
+
+        // Initialize Firebase
+        async function initializeFirebase() {
+            try {
+                app = window.initializeApp(window.firebaseConfig);
+                db = window.getFirestore(app);
+                auth = window.getAuth(app);
+
+                // Authenticate user
+                if (window.initialAuthToken) {
+                    await window.signInWithCustomToken(auth, window.initialAuthToken);
+                } else {
+                    await window.signInAnonymously(auth);
+                }
+
+                window.onAuthStateChanged(auth, (user) => {
+                    if (user) {
+                        userId = user.uid;
+                        userIdDisplay.textContent = userId;
+                        console.log("User authenticated:", userId);
+                    } else {
+                        userId = crypto.randomUUID(); // Fallback for unauthenticated
+                        userIdDisplay.textContent = userId;
+                        console.log("User signed out or anonymous:", userId);
+                    }
+                });
+            } catch (error) {
+                console.error("Error initializing Firebase:", error);
+                showFeedback("Gagal menginisialisasi Firebase. Coba lagi.", false);
+            }
+        }
+
+        // Function to clean words from punctuation and convert to lowercase
+        function cleanWord(word) {
+            return word.replace(/[.,!?;:()"']/g, '').toLowerCase().trim();
+        }
+
+        // Function to populate the text area with clickable words
+        function populateText(textToDisplay) {
+            textArea.innerHTML = ''; // Clear previous content
+            let sentenceIdCounter = 0;
+            let wordIdCounter = 0;
+
+            if (!textToDisplay) {
+                textArea.textContent = "Tidak ada teks untuk ditampilkan. Guru perlu membuat ruangan atau Anda perlu bergabung ke ruangan yang valid.";
+                return;
+            }
+
+            // Split text into sentences. This regex splits by sentence-ending punctuation
+            // followed by a space and a capital letter, or end of string.
+            const sentences = textToDisplay.match(/[^.!?]+[.!?]|\S+$/g) || [];
+
+            sentences.forEach(sentenceText => {
+                const p = document.createElement('p');
+                p.classList.add('sentence');
+                p.dataset.sentenceId = `s-${sentenceIdCounter++}`;
+
+                const words = sentenceText.split(/(\s+)/); 
+
+                words.forEach(wordToken => {
+                    if (wordToken.trim() === '') {
+                        p.appendChild(document.createTextNode(wordToken)); 
+                    } else {
+                        const span = document.createElement('span');
+                        span.classList.add('word');
+                        span.dataset.wordId = `w-${wordIdCounter++}`;
+                        span.textContent = wordToken;
+                        p.appendChild(span);
+                    }
+                });
+                textArea.appendChild(p);
+            });
+        }
+
+        // Function to update the score
+        function updateScore(points) {
+            score += points;
+            scoreDisplay.textContent = score;
+        }
+
+        // Function to display feedback to the user
+        function showFeedback(message, isCorrect) {
+            feedbackDisplay.textContent = message;
+            feedbackDisplay.style.color = isCorrect ? '#155724' : '#721c24'; /* Thematic feedback colors */
+            setTimeout(() => {
+                feedbackDisplay.textContent = '';
+            }, 2000); // Clear feedback after 2 seconds
+        }
+
+        // Function to reset the game state (not the room)
+        function resetGameState() {
+            currentCategory = null;
+            score = 0;
+            updateScore(0);
+            foundElements.clear();
+            feedbackDisplay.textContent = '';
+            instructionsDisplay.textContent = "Pilih kategori di bawah, lalu klik kata atau kalimat yang menurutmu sesuai dalam teks. Selamat bermain!";
+
+            document.querySelectorAll('.word.correct, .word.incorrect').forEach(el => {
+                el.classList.remove('correct', 'incorrect');
+            });
+            document.querySelectorAll('.sentence.correct, .sentence.incorrect').forEach(el => {
+                el.classList.remove('correct', 'incorrect');
+            });
+
+            document.querySelectorAll('.category-button').forEach(button => {
+                button.classList.remove('active');
+            });
+        }
+
+        // Function to generate answers using Gemini API
+        async function generateAnswers(text) {
+            teacherLoading.classList.add('active');
+            try {
+                const prompt = `From the following Indonesian text, identify and list words for:
+                1. Adjectives (Kata Sifat)
+                2. Verbs (Kata Kerja)
+                3. Nouns (Kata Benda)
+                4. Conjunctions (Kata Hubung)
+                And sentences for:
+                5. Visual details (Indra Penglihatan)
+                6. Auditory details (Indra Pendengaran) - if none, state "Tidak ada kalimat perincian indra pendengaran yang eksplisit dalam teks ini."
+                7. Tactile/Olfactory details (Indra Peraba/Penciuman)
+
+                Provide the output in a JSON format with arrays for each category. Ensure all words are lowercase. For sentences, use the exact sentence as it appears in the text.
+
+                Text: "${text}"`;
+
+                let chatHistory = [];
+                chatHistory.push({ role: "user", parts: [{ text: prompt }] });
+                
+                const payload = {
+                    contents: chatHistory,
+                    generationConfig: {
+                        responseMimeType: "application/json",
+                        responseSchema: {
+                            type: "OBJECT",
+                            properties: {
+                                "adjektiva": { "type": "ARRAY", "items": { "type": "STRING" } },
+                                "verba": { "type": "ARRAY", "items": { "type": "STRING" } },
+                                "nomina": { "type": "ARRAY", "items": { "type": "STRING" } },
+                                "konjungsi": { "type": "ARRAY", "items": { "type": "STRING" } },
+                                "penglihatan": { "type": "ARRAY", "items": { "type": "STRING" } },
+                                "pendengaran": { "type": "ARRAY", "items": { "type": "STRING" } },
+                                "peraba_penciuman": { "type": "ARRAY", "items": { "type": "STRING" } }
+                            }
+                        }
+                    }
+                };
+
+                const apiKey = "AIzaSyBTYkPdpMvS092y0K1C7w5tbWClPCCOq6w"; // Canvas will automatically provide it in runtime
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const result = await response.json();
+                
+                if (result.candidates && result.candidates.length > 0 &&
+                    result.candidates[0].content && result.candidates[0].content.parts &&
+                    result.candidates[0].content.parts.length > 0) {
+                    const jsonString = result.candidates[0].content.parts[0].text;
+                    // Attempt to parse the JSON string. Sometimes the model might return extra characters.
+                    try {
+                        const parsedJson = JSON.parse(jsonString);
+                        // Ensure all word lists are lowercase and sentences are trimmed
+                        for (const key in parsedJson) {
+                            if (Array.isArray(parsedJson[key])) {
+                                if (key === 'penglihatan' || key === 'pendengaran' || key === 'peraba_penciuman') {
+                                    parsedJson[key] = parsedJson[key].map(s => s.replace(/\s+/g, ' ').trim());
+                                } else {
+                                    parsedJson[key] = parsedJson[key].map(w => cleanWord(w));
+                                }
+                            }
+                        }
+                        return parsedJson;
+                    } catch (parseError) {
+                        console.error("Error parsing generated JSON:", parseError);
+                        console.error("Raw JSON string from API:", jsonString);
+                        showFeedback("Gagal memproses jawaban otomatis. Format API tidak valid.", false);
+                        return null;
+                    }
+                } else {
+                    showFeedback("Tidak dapat menghasilkan jawaban otomatis dari teks. Coba teks lain.", false);
+                    return null;
+                }
+            } catch (error) {
+                console.error("Error calling Gemini API:", error);
+                showFeedback("Terjadi kesalahan saat menghubungi layanan AI. Coba lagi.", false);
+                return null;
+            } finally {
+                teacherLoading.classList.remove('active');
+            }
+        }
+
+        // Event listener for creating/updating a room (Teacher Mode)
+        createRoomBtn.addEventListener('click', async () => {
+            const text = teacherTextInput.value.trim();
+            if (!text) {
+                showFeedback("Teks tidak boleh kosong!", false);
+                return;
+            }
+
+            teacherLoading.classList.add('active');
+            const gameId = currentRoomId || crypto.randomUUID(); // Reuse ID if already in a room, else new
+            currentRoomId = gameId; // Set current room ID
+
+            const generatedAnswers = await generateAnswers(text);
+
+            if (generatedAnswers) {
+                try {
+                    const gameRef = window.doc(db, `artifacts/${window.appId}/public/data/wordGames`, gameId);
+                    await window.setDoc(gameRef, {
+                        text: text,
+                        answers: generatedAnswers,
+                        createdAt: new Date(),
+                        createdBy: userId
+                    });
+                    teacherRoomIdDisplay.textContent = gameId;
+                    teacherRoomInfo.style.display = 'block';
+                    showFeedback("Ruangan berhasil dibuat/diperbarui!", true);
+                    // Automatically join the created room
+                    await joinRoom(gameId, text, generatedAnswers);
+                } catch (error) {
+                    console.error("Error saving game data to Firestore:", error);
+                    showFeedback("Gagal menyimpan data ruangan. Coba lagi.", false);
+                } finally {
+                    teacherLoading.classList.remove('active');
+                }
+            }
+        });
+
+        // Event listener for joining a room (Student Mode)
+        joinRoomBtn.addEventListener('click', async () => {
+            const roomId = studentRoomInput.value.trim();
+            if (!roomId) {
+                showFeedback("ID Ruangan tidak boleh kosong!", false);
+                return;
+            }
+
+            studentLoading.classList.add('active');
+            try {
+                const gameRef = window.doc(db, `artifacts/${window.appId}/public/data/wordGames`, roomId);
+                const docSnap = await window.getDoc(gameRef);
+
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    await joinRoom(roomId, data.text, data.answers);
+                    showFeedback("Berhasil bergabung ke ruangan!", true);
+                } else {
+                    showFeedback("ID Ruangan tidak ditemukan.", false);
+                }
+            } catch (error) {
+                console.error("Error joining room:", error);
+                showFeedback("Gagal bergabung ke ruangan. Coba lagi.", false);
+            } finally {
+                studentLoading.classList.remove('active');
+            }
+        });
+
+        // Function to handle joining a room (common for teacher and student)
+        async function joinRoom(roomId, text, answers) {
+            if (unsubscribeFromRoom) {
+                unsubscribeFromRoom(); // Unsubscribe from previous room if any
+            }
+            currentRoomId = roomId;
+            currentCorrectAnswers = answers; // Set the correct answers for the current game
+
+            populateText(text);
+            resetGameState();
+            gameArea.style.display = 'block'; // Show game UI
+
+            // Listen for real-time updates to the room (e.g., if teacher edits text)
+            const gameRef = window.doc(db, `artifacts/${window.appId}/public/data/wordGames`, roomId);
+            unsubscribeFromRoom = window.onSnapshot(gameRef, (docSnap) => {
+                if (docSnap.exists()) {
+                    const updatedData = docSnap.data();
+                    // Only update and reset if the text content actually changed
+                    if (updatedData.text !== textArea.textContent.replace(/\s+/g, ' ').trim()) {
+                        populateText(updatedData.text);
+                        currentCorrectAnswers = updatedData.answers;
+                        resetGameState(); // Reset game state if text changes
+                        showFeedback("Teks ruangan telah diperbarui!", true);
+                    }
+                } else {
+                    showFeedback("Ruangan ini tidak lagi tersedia.", false);
+                    gameArea.style.display = 'none'; // Hide game UI if room deleted
+                    currentRoomId = null;
+                    unsubscribeFromRoom = null;
+                    resetGameState();
+                }
+            }, (error) => {
+                console.error("Error listening to room updates:", error);
+                showFeedback("Gagal memantau perubahan ruangan.", false);
+            });
+        }
+
+        // Mode selection
+        teacherModeBtn.addEventListener('click', () => {
+            teacherSection.classList.add('active');
+            studentSection.classList.remove('active');
+            teacherModeBtn.classList.add('active');
+            studentModeBtn.classList.remove('active');
+            gameArea.style.display = 'none'; // Hide game area in teacher input mode
+            currentRoomId = null; // Reset room ID when switching modes
+            teacherRoomInfo.style.display = 'none'; // Hide room info
+            teacherTextInput.value = ''; // Clear text input
+            if (unsubscribeFromRoom) {
+                unsubscribeFromRoom();
+                unsubscribeFromRoom = null;
+            }
+            instructionsDisplay.textContent = "Mode Guru: Masukkan teks di bawah untuk membuat ruangan permainan baru.";
+        });
+
+        studentModeBtn.addEventListener('click', () => {
+            studentSection.classList.add('active');
+            teacherSection.classList.remove('active');
+            studentModeBtn.classList.add('active');
+            teacherModeBtn.classList.remove('active');
+            gameArea.style.display = 'none'; // Hide game area initially in student mode
+            currentRoomId = null; // Reset room ID when switching modes
+            studentRoomInput.value = ''; // Clear room input
+            if (unsubscribeFromRoom) {
+                unsubscribeFromRoom();
+                unsubscribeFromRoom = null;
+            }
+            instructionsDisplay.textContent = "Mode Siswa: Masukkan ID ruangan untuk bergabung ke permainan.";
+        });
+
+        // Event listener for category buttons
+        categoryButtons.addEventListener('click', (event) => {
+            const target = event.target;
+            if (target.classList.contains('category-button')) {
+                document.querySelectorAll('.category-button').forEach(button => {
+                    button.classList.remove('active');
+                });
+                target.classList.add('active');
+                currentCategory = target.dataset.category;
+                instructionsDisplay.textContent = categoryInstructions[currentCategory];
+                feedbackDisplay.textContent = '';
+
+                if (currentCategory === 'pendengaran') {
+                    showFeedback("Kategori ini tidak memiliki kalimat eksplisit dalam teks ini.", false);
+                }
+            }
+        });
+
+        // Event listener for clicking words/sentences
+        textArea.addEventListener('click', (event) => {
+            if (!currentCategory) {
+                showFeedback("Pilih kategori terlebih dahulu!", false);
+                return;
+            }
+            if (!currentCorrectAnswers || Object.keys(currentCorrectAnswers).length === 0) {
+                showFeedback("Jawaban untuk teks ini belum dimuat. Guru perlu membuat ruangan atau ada masalah dengan analisis teks.", false);
+                return;
+            }
+
+            const target = event.target;
+
+            if (target.classList.contains('word')) {
+                const wordId = target.dataset.wordId;
+                const cleanedWord = cleanWord(target.textContent);
+
+                if (['adjektiva', 'verba', 'nomina', 'konjungsi'].includes(currentCategory)) {
+                    if (foundElements.has(wordId)) {
+                        showFeedback("Kata ini sudah ditemukan!", false);
+                        return;
+                    }
+
+                    if (currentCorrectAnswers[currentCategory] && currentCorrectAnswers[currentCategory].includes(cleanedWord)) {
+                        target.classList.add('correct');
+                        foundElements.add(wordId);
+                        updateScore(1);
+                        showFeedback("Benar!", true);
+                    } else {
+                        target.classList.add('incorrect');
+                        updateScore(-1);
+                        showFeedback("Salah!", false);
+                        setTimeout(() => target.classList.remove('incorrect'), 500);
+                    }
+                } else if (['penglihatan', 'peraba_penciuman', 'pendengaran'].includes(currentCategory)) {
+                    const sentenceElement = target.closest('.sentence');
+                    if (sentenceElement) {
+                        const sentenceId = sentenceElement.dataset.sentenceId;
+                        const fullSentenceText = sentenceElement.textContent.replace(/\s+/g, ' ').trim();
+
+                        if (foundElements.has(sentenceId)) {
+                            showFeedback("Kalimat ini sudah ditemukan!", false);
+                            return;
+                        }
+
+                        // For 'Kata Perincian' categories, check against the generated sentences
+                        if (currentCorrectAnswers[currentCategory] && currentCorrectAnswers[currentCategory].includes(fullSentenceText)) {
+                            sentenceElement.classList.add('correct');
+                            foundElements.add(sentenceId);
+                            updateScore(5);
+                            showFeedback("Benar, kata perincian ditemukan!", true); // Updated feedback
+                        } else {
+                            sentenceElement.classList.add('incorrect');
+                            updateScore(-2);
+                            showFeedback("Salah, ini bukan kata perincian yang dicari.", false); // Updated feedback
+                            setTimeout(() => sentenceElement.classList.remove('incorrect'), 500);
+                        }
+                    }
+                }
+            }
+        });
+
+        resetButton.addEventListener('click', resetGameState);
+
+        copyRoomIdBtn.addEventListener('click', () => {
+            const roomId = teacherRoomIdDisplay.textContent;
+            if (roomId) {
+                const tempTextArea = document.createElement('textarea');
+                tempTextArea.value = roomId;
+                document.body.appendChild(tempTextArea);
+                tempTextArea.select();
+                try {
+                    document.execCommand('copy');
+                    showFeedback("ID Ruangan disalin!", true);
+                } catch (err) {
+                    console.error('Gagal menyalin ID ruangan:', err);
+                    showFeedback("Gagal menyalin ID ruangan.", false);
+                } finally {
+                    document.body.removeChild(tempTextArea);
+                }
+            }
+        });
+
+        window.onload = initializeFirebase;
+    </script>
+</body>
+</html>
